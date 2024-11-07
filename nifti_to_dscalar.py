@@ -20,6 +20,9 @@ parser.add_argument("r_surface",
 parser.add_argument("nifti", nargs="+",
                     help="Input NIFTI file(s)")
 
+parser.add_argument("--overwrite", action="store_true",
+                    help="If set, will overwrite output files.")
+
 parser.add_argument("--output_name", "-o", nargs="+",
                     help="Output name (without .dscalar.nii).\nMust be same "
                          "length as nifti input, if provided.")
@@ -170,11 +173,20 @@ for file, oname in zip(args.nifti, output_names):
     #   extension with '.dscalar.nii'
     output_name = f"{oname}.dscalar.nii" if oname is not None else \
         re.sub("nii.gz$", "dscalar.nii", file)
+    
+    if os.path.exists(output_name) and not args.overwrite:
+       
+       print(f"ERROR: Requested output file {output_name} already exists, "
+              "not doing anything.")
+        
+    else:
 
-    project(file, [args.l_surface, args.r_surface], output_name,
-            args.outer_surfaces, args.inner_surfaces,
-            method=args.method, rc_method=args.rc_method,
-            verbose=args.verbose)
+        project(file, 
+                [args.l_surface, args.r_surface], 
+                output_name,
+                args.outer_surfaces, args.inner_surfaces,
+                method=args.method, rc_method=args.rc_method,
+                verbose=args.verbose)
 
 if args.verbose:
     print(f"INFO:  {dt.datetime.now()}")
