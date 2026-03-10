@@ -18,7 +18,7 @@ To use the `-ribbon-enclosed` mapping, simply supply the inner (WM) and outer
 (pial) surface files. Two each: left, right. The default ribbon mapping is
 weighted averaging, use `--rc_method` to change that.
 
-## Full usage:
+## Full usage
 
     usage: nifti_to_dscalar [-h] [--output_name OUTPUT_NAME [OUTPUT_NAME ...]]
                             [--method {trilinear,cubic,enclosing}]
@@ -58,9 +58,8 @@ weighted averaging, use `--rc_method` to change that.
 
 ## More help
 
- - [Volume to surface mapping][1]
- - [CIFTI create dense scalar][2]
-
+- [Volume to surface mapping][1]
+- [CIFTI create dense scalar][2]
 
 [1]: https://humanconnectome.org/software/workbench-command/-volume-to-surface-mapping
 [2]: https://humanconnectome.org/software/workbench-command/-cifti-create-dense-scalar

@@ -144,7 +144,7 @@ def project_n2s(nifti, surfaces, output_name, surf_pial, surf_wm,
             "-left-metric", temp_surfaces[0].name,
             "-right-metric", temp_surfaces[1].name])
 
-def project_s2n(metric, surface, volume_template, output_name):
+# def project_s2n(metric, surface, volume_template, output_name):
 
 
 
