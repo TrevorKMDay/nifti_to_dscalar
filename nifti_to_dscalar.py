@@ -17,8 +17,8 @@ parser.add_argument("l_surface",
 parser.add_argument("r_surface",
                     help="Right surface to map onto.")
 
-parser.add_argument("nifti", nargs="+",
-                    help="Input NIFTI file(s)")
+parser.add_argument("source_files", nargs="+",
+                    help="Input NIFTI or surface file(s)")
 
 parser.add_argument("--overwrite", action="store_true",
                     help="If set, will overwrite output files.")
@@ -54,6 +54,10 @@ parser.add_argument("--outer_surfaces", "-pial", nargs=2,
                     default=[None, None],
                     metavar="SURF")
 
+parser.add_argument("--volume-ref", "-vol",
+                    help="When projecting metric to volume, reference volume",
+                    metavar="NIFTI")
+
 parser.add_argument("--verbose", "-v", action="store_true",
                     help="Does what a --verbose flag usually does.")
 
@@ -71,8 +75,8 @@ if bool(args.inner_surfaces is not None) ^ \
 # DEFINE FUNCTIONS
 
 
-def project(nifti, surfaces, output_name, surf_pial, surf_wm,
-            method=None, rc_method=None, verbose=False):
+def project_n2s(nifti, surfaces, output_name, surf_pial, surf_wm,
+                method=None, rc_method=None, verbose=False):
 
     temp_surfaces = [tf.NamedTemporaryFile(suffix=".func.gii"),
                      tf.NamedTemporaryFile(suffix=".func.gii")]
@@ -140,6 +144,9 @@ def project(nifti, surfaces, output_name, surf_pial, surf_wm,
             "-left-metric", temp_surfaces[0].name,
             "-right-metric", temp_surfaces[1].name])
 
+def project_s2n(metric, surface, volume_template, output_name):
+
+
 
 # MAIN LOOP
 
@@ -149,7 +156,7 @@ if args.verbose:
 # Check that # files and # of new names aligns
 if args.output_name is not None:
 
-    if len(args.nifti) == len(args.output_name):
+    if len(args.source_files) == len(args.output_name):
         output_names = args.output_name
     else:
         print("ERROR: Length of nifti/name inputs does not match!")
@@ -160,7 +167,7 @@ else:
     output_names = [None] * len(args.nifti)
 
 
-for file, oname in zip(args.nifti, output_names):
+for file, oname in zip(args.source_files, output_names):
 
     if not os.path.isfile(file):
 
@@ -169,24 +176,28 @@ for file, oname in zip(args.nifti, output_names):
 
     print(f"INFO:  Working on {file} ...")
 
-    # Set output name to provided value, otherwise just replace '.nii.gz'
-    #   extension with '.dscalar.nii'
-    output_name = f"{oname}.dscalar.nii" if oname is not None else \
-        re.sub("nii.gz$", "dscalar.nii", file)
-    
-    if os.path.exists(output_name) and not args.overwrite:
-       
-       print(f"ERROR: Requested output file {output_name} already exists, "
-              "not doing anything.")
-        
-    else:
+    if ".nii" in file:
 
-        project(file, 
-                [args.l_surface, args.r_surface], 
-                output_name,
-                args.outer_surfaces, args.inner_surfaces,
-                method=args.method, rc_method=args.rc_method,
-                verbose=args.verbose)
+        print(f"INFO: Source file {file} is a NIFTI, doing NIFTI to surface")
+
+        # Set output name to provided value, otherwise just replace '.nii.gz'
+        #   extension with '.dscalar.nii'
+        output_name = f"{oname}.dscalar.nii" if oname is not None else \
+            re.sub("nii.gz$", "dscalar.nii", file)
+
+        if os.path.exists(output_name) and not args.overwrite:
+
+            print(f"ERROR: Requested output file {output_name} already "
+                    "exists, not doing anything.")
+
+        else:
+
+            project_n2s(file,
+                        [args.l_surface, args.r_surface],
+                        output_name,
+                        args.outer_surfaces, args.inner_surfaces,
+                        method=args.method, rc_method=args.rc_method,
+                        verbose=args.verbose)
 
 if args.verbose:
     print(f"INFO:  {dt.datetime.now()}")
