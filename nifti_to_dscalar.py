@@ -311,6 +311,11 @@ elif args.to_nifti is not None:
         print("ERROR: A volume reference (--volume_ref) must be supplied if "
               "using the surface-to-nifti method.")
         exit(1)
+    else:
+        if not os.path.isfile(args.volume_ref):
+            print(f"ERROR: {args.volume_ref} does not exist")
+            exit(1)
+
 
 if args.verbose:
     print(f"INFO:  {dt.datetime.now()}")
