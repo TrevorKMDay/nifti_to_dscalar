@@ -3,43 +3,60 @@
 This script uses the convention that, when paired, the order is always left,
 right. For all methods, use `enclosing` for label values.
 
-## Usage
+All methods depend on `wb_command` being available on your system. Currently,
+there is no flag to supply a path.
+
+## Shared options
+
+    --midthickness SURF SURF, -M SURF SURF
+                            Left and right midthickness files
+                            Required for both directions.
+
+    --inner_surfaces SURF SURF, -wm SURF SURF
+                            WM surfaces to use ribbon enclosed projection. L/R.
+                            Must be used with --outer_surfaces.
+    --outer_surfaces SURF SURF, -pial SURF SURF
+                            Pial surfaces to use ribbon enclosed projection. L/R.
+                            Must be used with --inner_surfaces
+
+    -h, --help            show this help message and exit
+    --verbose, -v         Does what a --verbose flag usually does.
+    --overwrite           If set, will overwrite output files.
+    --output_name OUTPUT_NAME [OUTPUT_NAME ...], -o OUTPUT_NAME [OUTPUT_NAME ...]
+                            Output name (without suffix).
+                            Must be same length as input.
+
+Use `--output_name` to set the prefixes. Must be the same length as the input
+list. Automatically adds suffixes (`.dscalar.nii`, `.nii.gz` as appropriate).
+
+If supplied, both `--inner_surfaces` and `--outer_surfaces` must be used,
+both with two sets of surfaces files. These are used in both directions to
+refine the projection, but both directions can be done without inner/outer
+surfaces.
+
+## Volume to CIFTI mapping
 
 At the most basic, all you need is two surfaces (left/right `.surf.gii`) and a
 NIFTI (`.nii.gz`):
 
-    python nifti_to_dscalar.py left.surf.gii right.surf.gii nifti.nii.gz
+    python nifti_to_dscalar.py \
+        --midthickness left.surf.gii right.surf.gii \
+        --to_dscalar   nifti.nii.gz
 
-The NIFTI option is repeatable (to use the same surfaces for each one).
+You can supply multiple NIFTIs to apply the same transformations too.
 
-## Ribbon-enclosed
+### Ribbon-enclosed
 
 To use the `-ribbon-enclosed` mapping, simply supply the inner (WM) and outer
 (pial) surface files. Two each: left, right. The default ribbon mapping is
 weighted averaging, use `--rc_method` to change that.
 
-## Full usage
+### All options
 
-    usage: nifti_to_dscalar [-h] [--output_name OUTPUT_NAME [OUTPUT_NAME ...]]
-                            [--method {trilinear,cubic,enclosing}]
-                            [--rc_method {weighted_avg,trilinear,cubic,enclosing}]
-                            [--inner_surfaces SURF SURF]
-                            [--outer_surfaces SURF SURF] [--verbose]
-                            l_surface r_surface nifti [nifti ...]
+    --to_dscalar NIFTI [NIFTI ...]
+                            A list of NIFTI files to convert to surface.
 
-    Easily project .nii.gz files into surface space.
-    Hemisphere order is always L->R.
-
-    positional arguments:
-    l_surface             Left surface to map onto.
-    r_surface             Right surface to map onto.
-    nifti                 Input NIFTI file(s)
-
-    optional arguments:
-    -h, --help            show this help message and exit
-    --output_name OUTPUT_NAME [OUTPUT_NAME ...], -o OUTPUT_NAME [OUTPUT_NAME ...]
-                            Output name (without .dscalar.nii).
-                            Must be same length as nifti input, if provided.
+    NIFTI to surface:
     --method {trilinear,cubic,enclosing}, -m {trilinear,cubic,enclosing}
                             Method to use.
                             Use 'enclosing' for labels.
@@ -48,13 +65,39 @@ weighted averaging, use `--rc_method` to change that.
     --rc_method {weighted_avg,trilinear,cubic,enclosing}
                             Method to use for ribbon-constrained mapping.
                             Default: 'weighted_avg'.
-    --inner_surfaces SURF SURF, -wm SURF SURF
-                            WM surfaces to use ribbon enclosed projection. L/R.
-                            Must be used with --outer_surfaces.
-    --outer_surfaces SURF SURF, -pial SURF SURF
-                            Pial surfaces to use ribbon enclosed projection. L/R.
-                            Must be used with --inner_surfaces
-    --verbose, -v         Does what a --verbose flag usually does.
+
+## CIFTI to volume mapping
+
+This script can also project `dscalar` and `dtseries` files to NIFTI space.
+This requires the midthickness files as well, and a volume reference
+(`--volume_ref`).
+
+This method depends on FSL tools being installed on your system.
+
+At the most basic:
+
+    python nifti_to_dscalar.py -v \
+        --to_nifti     ${path}/cope1.feat/tstat1.dtseries.nii \
+        --midthickness 101915/101915.{L,R}.midthickness.32k_fs_LR.surf.gii \
+        --volume_ref   101915/T1w.nii.gz
+
+You can use the `--nearest_vertex` method (default, defaults to 2 mm, and
+faster), or provide the
+WM/pial (inner/outer) surfaces for a slower, but more accurate mapping.
+Adding the `--*_surfaces` flags will overrule any use of the `--nearest_vertex`
+flag.
+
+(The use of 2 mm was arbitrary. Please suggest a better number.)
+
+Example usage:
+
+    python nifti_to_dscalar.py -v \
+        --to_nifti       ${path}/cope1.feat/tstat1.dtseries.nii \
+        --midthickness   101915/101915.{L,R}.midthickness.32k_fs_LR.surf.gii \
+        --volume_ref     101915/T1w.nii.gz \
+        --inner_surfaces 101915/101915.{L,R}.white.32k_fs_LR.surf.gii \
+        --outer_surfaces 101915/101915.{L,R}.pial.32k_fs_LR.surf.gii \
+        --output_name    tstat1_ribconst
 
 ## More help
 

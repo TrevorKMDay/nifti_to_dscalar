@@ -57,19 +57,19 @@ parser.add_argument("--verbose", "-v", action="store_true",
 group_n2s = parser.add_argument_group("NIFTI to surface")
 
 group_n2s.add_argument("--method", "-m",
-                    help="Method to use.\nUse 'enclosing' for labels.\n"
-                         "Conflicts with ribbon-constrained, use "
-                         "--rc_method\n."
-                         "Default: 'trilinear'.",
-                    choices=["trilinear", "cubic", "enclosing"],
-                    default="default")
+                        help="Method to use.\nUse 'enclosing' for labels.\n"
+                            "Conflicts with ribbon-constrained, use "
+                            "--rc_method\n."
+                            "Default: 'trilinear'.",
+                        choices=["trilinear", "cubic", "enclosing"],
+                        default="default")
 
 group_n2s.add_argument("--rc_method",
-                    help="Method to use for ribbon-constrained mapping.\n"
-                         "Default: 'weighted_avg'.",
-                    choices=["weighted_avg", "trilinear", "cubic",
-                             "enclosing"],
-                    default="weighted_avg")
+                        help="Method to use for ribbon-constrained mapping.\n"
+                            "Default: 'weighted_avg'.",
+                        choices=["weighted_avg", "trilinear", "cubic",
+                                "enclosing"],
+                        default="weighted_avg")
 
 group_s2n = parser.add_argument_group("Surface to NIFTI")
 
@@ -98,6 +98,9 @@ if args.inner_surfaces != [None, None] and args.outer_surfaces != [None, None]:
 
     print("INFO: Using ribbon-constrained method for surf-to-nifti.")
     print("INFO: This method takes longer than nearest-vertex (about 1 min).")
+
+    # TO DO: Add method to modify -voxel-subdiv flag, although idk what it
+    # does anyway. No plan to add legacy 'greedy' and 'thick columns' methods.
 
     # If the inner and outer surfaces are set, use the ribbon-constrained
     # surface-to-nifti option
