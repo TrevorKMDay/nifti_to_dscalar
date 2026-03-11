@@ -102,6 +102,26 @@ Example usage:
         --outer_surfaces 101915/101915.{L,R}.pial.32k_fs_LR.surf.gii \
         --output_name    tstat1_ribconst
 
+## Applying a warp to the resulting NIFTI
+
+Applying a warp to the new NIFTI is a common need, so this script supplies an
+argument, `--apply_after_warp 0/1 warp_file [suffix]`. The first 0/1 indicates
+whether to keep the unwarped file (i.e., 0 = delete it, 1 = keep both). The
+second argument is a warp file, and the optional third argument adds a suffix
+(default: `desc-warped`).
+
+Example usage:
+
+    python nifti_to_dscalar.py -v \
+        --to_nifti         ${path}/cope1.feat/tstat1.dtseries.nii \
+        --midthickness     101915/101915.{L,R}.midthickness.32k_fs_LR.surf.gii \
+        --volume_ref       101915/T1w.nii.gz \
+        --inner_surfaces   101915/101915.{L,R}.white.32k_fs_LR.surf.gii \
+        --outer_surfaces   101915/101915.{L,R}.pial.32k_fs_LR.surf.gii \
+        --apply_after_warp 0 101915/xfms/acpc_dc2standard.nii.gz  \
+        --output_name      test_rc
+
+
 ## More help
 
 - [Volume to surface mapping][1]

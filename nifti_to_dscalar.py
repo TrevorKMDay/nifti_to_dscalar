@@ -82,9 +82,17 @@ group_s2n.add_argument("--nearest_vertex", nargs=1, default=2,
                             "in mm. Default: 2 mm.\n"
                             "This is overridden by using --*_surfaces")
 
+group_s2n.add_argument("--apply_after_warp", nargs='+', metavar="NIFTI",
+                       help="After doing the surface-to-volume conversion,"
+                            "apply a warp (using FSL applywarp).\n"
+                            "Three arguments:\n"
+                            "  0/1: If 1, keep unwarped file\n"
+                            "  [file]: Warp file to apply\n"
+                            "  [name]: suffix to add, default: _desc-warped")
+
 args = parser.parse_args()
 
-# Give the midthickness files a beetter name
+# Give the midthickness files a better name
 midsurfaces = args.midthickness
 s2n_use_rc = False
 
@@ -115,6 +123,30 @@ else:
 
 # IMPORTANT NOTE:   This script uses the convention to pair L/R files in
 #   two-item lists, where [0] is L, and [1] is R.
+
+if args.apply_after_warp is not None:
+
+    # Check whether to keep file
+    if args.apply_after_warp[0] == '1':
+        keep_unwarped = True
+    elif args.apply_after_warp[0] == '0':
+        keep_unwarped = False
+    else:
+        print(f"Invalid option \'{args.apply_after_warp[0]}\' to "
+              "--apply_after_warp, first option must be "
+              "0 or 1.")
+
+    # There's probably a neater way to do this
+    if len(args.apply_after_warp) == 2:
+        warp_file = args.apply_after_warp[1]
+        warp_suffix = "_desc-warped"
+    elif len(args.apply_after_warp) == 3:
+        warp_file = args.apply_after_warp[1]
+        warp_suffix = args.apply_after_warp[2]
+    else:
+        print("Must supply 2 or 3 arguments to --apply_after_warp, supplied"
+              f"{len(args.apply_after_warp)}")
+
 
 # DEFINE FUNCTIONS
 
@@ -236,10 +268,31 @@ def project_s2n(metric, midsurfaces, volume_template, output_name,
         sp.run(m2v_cmd)
 
 
-    # Add the L/R niftis back into one
+    # Add the L/R niftis back into one.
+    # TO DO: This is probably possible with wb_command to reduce dependencies
     sp.run(["fslmaths", temp_niftis[0].name,
             "-add", temp_niftis[1].name,
             output_name])
+
+
+def apply_warp(in_file, warp_file, out_file, keep=False):
+
+    # applywarp \
+    #     -i "${i}" \
+    #     -r 101915/xfms/acpc_dc2standard.nii.gz \
+    #     -w 101915/xfms/acpc_dc2standard.nii.gz \
+    #     -o "${i//.nii.gz/_warped.nii.gz}" \
+    #     --interp=nn
+
+    # TO DO: add more interpolation options
+    cmd = ["applywarp", "-i", in_file, "-r", warp_file, "-o", out_file,
+           "-w", warp_file, "--interp=nn"]
+
+    sp.run(cmd)
+
+    if not keep:
+        print(f"Removing file {in_file} as requested")
+        os.remove(in_file)
 
 
 # MAIN LOOP
@@ -333,6 +386,21 @@ for file, oname in zip(source_files, output_names):
                         volume_template=args.volume_ref,
                         output_name=output_name,
                         verbose=args.verbose)
+
+        if args.apply_after_warp is not None:
+
+
+            output_name2 = f"{oname}{warp_suffix}.nii.gz"
+
+            if os.path.exists(output_name2) and not args.overwrite:
+
+                print(f"ERROR: Requested warped file {output_name2} already "
+                        "exists, not doing anything.")
+
+            else:
+
+                print(f"Applying warp {warp_file}")
+                apply_warp(output_name, warp_file, output_name2, keep_unwarped)
 
 if args.verbose:
     print(f"INFO:  {dt.datetime.now()}")
