@@ -73,19 +73,42 @@ group_n2s.add_argument("--rc_method",
 
 group_s2n = parser.add_argument_group("Surface to NIFTI")
 
-group_s2n.add_argument("--volume-ref", "-vol",
+group_s2n.add_argument("--volume_ref", "-vol",
                        help="When projecting metric to volume, reference volume",
                        metavar="NIFTI")
 
+group_s2n.add_argument("--nearest_vertex", nargs=1, default=2,
+                       help="How far from the surface to map values to voxels,"
+                            "in mm. Default: 2 mm.\n"
+                            "This is overridden by using --*_surfaces")
+
 args = parser.parse_args()
 
+# Give the midthickness files a beetter name
 midsurfaces = args.midthickness
+s2n_use_rc = False
 
-if bool(args.inner_surfaces is not None) ^ \
-   bool(args.outer_surfaces is not None):
+if bool(args.inner_surfaces != [None, None]) ^ \
+    bool(args.outer_surfaces != [None, None]):
 
     print("ERROR: If one of inner/outer surfaces is provided, both must be!")
     exit(1)
+
+if args.inner_surfaces != [None, None] and args.outer_surfaces != [None, None]:
+
+    print("INFO: Using ribbon-constrained method for surf-to-nifti.")
+    print("INFO: This method takes longer than nearest-vertex (about 1 min).")
+
+    # If the inner and outer surfaces are set, use the ribbon-constrained
+    # surface-to-nifti option
+    s2n_use_rc = True
+    near_vtx_dist = None
+
+else:
+
+    near_vtx_dist = args.nearest_vertex[0]
+    print("INFO: Using nearest-vertex method for surf-to-nifti, "
+          f"distance: {near_vtx_dist}")
 
 # IMPORTANT NOTE:   This script uses the convention to pair L/R files in
 #   two-item lists, where [0] is L, and [1] is R.
@@ -139,7 +162,7 @@ def project_n2s(nifti, midsurfaces, output_name, surf_pial, surf_wm,
             f"-interpolate {rc_method}"
 
         # Do mapping for L/R
-        for i in [0, 1]:
+        for i, LR in zip([0, 1], ["L", "R"]):
 
             cmd = ["wb_command", "-volume-to-surface-mapping",
                    nifti, midsurfaces[i], temp_surfaces[i].name,
@@ -151,8 +174,7 @@ def project_n2s(nifti, midsurfaces, output_name, surf_pial, surf_wm,
                 cmd = cmd.append(flag)
 
             if verbose:
-                h = ["L", "R"][i]
-                print(f"INFO:  Working on {h} hemisphere")
+                print(f"INFO:  Working on {LR} hemisphere")
 
             # Actually run the command
             sp.run(cmd, check=True)
@@ -162,11 +184,77 @@ def project_n2s(nifti, midsurfaces, output_name, surf_pial, surf_wm,
             "-left-metric", temp_surfaces[0].name,
             "-right-metric", temp_surfaces[1].name])
 
-# def project_s2n(metric, surface, volume_template, output_name):
+def project_s2n(metric, midsurfaces, volume_template, output_name,
+                near_vtx_dist=None,
+                inner_surfaces=None, outer_surfaces=None, verbose=False):
 
+    # Extract the surfaces from the CIFTI file into two new files
+    temp_surfaces = [tf.NamedTemporaryFile(suffix=".func.gii"),
+                     tf.NamedTemporaryFile(suffix=".func.gii")]
+
+    sep_command = ["wb_command", "-cifti-separate",
+                   metric, "COLUMN",
+                   "-metric", "CORTEX_LEFT", temp_surfaces[0].name,
+                   "-metric", "CORTEX_RIGHT", temp_surfaces[1].name]
+
+    if verbose:
+        print(" ".join(sep_command))
+
+    sp.run(sep_command)
+
+    # For each L/R extracted cortex, convert it to a nifti
+
+    temp_niftis = [tf.NamedTemporaryFile(suffix=".nii.gz"),
+                     tf.NamedTemporaryFile(suffix=".nii.gz")]
+
+    for i, LR in zip([0, 1], ["L", "R"]):
+
+        if verbose:
+            print(f"INFO:  Working on {LR} hemisphere")
+
+        m2v_cmd = ["wb_command", "-metric-to-volume-mapping",
+               temp_surfaces[i].name, midsurfaces[i], volume_template,
+               temp_niftis[i].name]
+
+        if near_vtx_dist is not None:
+
+            # Using nearest vertex method
+            m2v_cmd = m2v_cmd + ["-nearest-vertex", str(near_vtx_dist)]
+
+        else:
+
+            # Append the L/R inner/outer surfaces accordingly
+            m2v_cmd = m2v_cmd + \
+                ["-ribbon-constrained", inner_surfaces[i], outer_surfaces[i]]
+
+        if verbose:
+            print(m2v_cmd)
+
+        sp.run(m2v_cmd)
+
+
+    # Add the L/R niftis back into one
+    sp.run(["fslmaths", temp_niftis[0].name,
+            "-add", temp_niftis[1].name,
+            output_name])
 
 
 # MAIN LOOP
+
+if args.to_dscalar is not None:
+
+    method = "to_dscalar"
+    source_files = args.to_dscalar
+
+elif args.to_nifti is not None:
+
+    method = "to_nifti"
+    source_files = args.to_nifti
+
+    if args.volume_ref is None:
+        print("ERROR: A volume reference (--volume_ref) must be supplied if "
+              "using the surface-to-nifti method.")
+        exit(1)
 
 if args.verbose:
     print(f"INFO:  {dt.datetime.now()}")
@@ -174,7 +262,7 @@ if args.verbose:
 # Check that # files and # of new names aligns
 if args.output_name is not None:
 
-    if len(args.source_files) == len(args.output_name):
+    if len(source_files) == len(args.output_name):
         output_names = args.output_name
     else:
         print("ERROR: Length of nifti/name inputs does not match!")
@@ -182,14 +270,8 @@ if args.output_name is not None:
 
 else:
     # Create list of Nones for loop - i.e. provide no new names
-    output_names = [None] * len(args.nifti)
+    output_names = [None] * len(source_files)
 
-if args.to_dscalar is not None:
-    method = "to_dscalar"
-    source_files = args.to_dscalar
-elif args.to_nifti is not None:
-    method = "to_nifti"
-    source_files = args.to_nifti
 
 for file, oname in zip(source_files, output_names):
 
@@ -200,7 +282,7 @@ for file, oname in zip(source_files, output_names):
 
     print(f"INFO:  Working on {file} ...")
 
-    if method == "to_nifti":
+    if method == "to_dscalar":
 
         print(f"INFO: Doing NIFTI to surface")
 
@@ -221,9 +303,33 @@ for file, oname in zip(source_files, output_names):
                         method=args.method, rc_method=args.rc_method,
                         verbose=args.verbose)
 
-    elif method == "to_dscalar":
+    elif method == "to_nifti":
 
-        print(f"INFO: Doing surface to dscalar")
+        print("INFO: Doing surface to dscalar")
+
+        if near_vtx_dist is not None:
+            print("INFO: Using nearest-vertex mapping, distance:"
+                  f"{near_vtx_dist} mm.")
+
+        # Set output name to provided value, otherwise just replace '.nii.gz'
+        #   extension with '.dscalar.nii'
+        output_name = f"{oname}.nii.gz" if oname is not None else \
+            re.sub(".[a-z]*.nii$", ".nii.gz", file)
+
+        if os.path.exists(output_name) and not args.overwrite:
+
+            print(f"ERROR: Requested output file {output_name} already "
+                    "exists, not doing anything.")
+
+        else:
+
+            project_s2n(file, midsurfaces,
+                        near_vtx_dist=near_vtx_dist,
+                        inner_surfaces=args.inner_surfaces,
+                        outer_surfaces=args.outer_surfaces,
+                        volume_template=args.volume_ref,
+                        output_name=output_name,
+                        verbose=args.verbose)
 
 if args.verbose:
     print(f"INFO:  {dt.datetime.now()}")
