@@ -72,7 +72,10 @@ This script can also project `dscalar` and `dtseries` files to NIFTI space.
 This requires the midthickness files as well, and a volume reference
 (`--volume_ref`).
 
-This method depends on FSL tools being installed on your system.
+This method depends on FSL tools being installed on your system. There is
+currently no option to pass an FSL path.
+
+Additionally, currently, the subcortical data is not added to the output.
 
 At the most basic:
 
@@ -103,6 +106,10 @@ Example usage:
 
 - [Volume to surface mapping][1]
 - [CIFTI create dense scalar][2]
+- [CIFTI separate][3]
+- [CIFTI metric (surface) to volume mapping][4]
 
 [1]: https://humanconnectome.org/software/workbench-command/-volume-to-surface-mapping
 [2]: https://humanconnectome.org/software/workbench-command/-cifti-create-dense-scalar
+[3]: https://humanconnectome.org/software/workbench-command/-cifti-separate
+[4]: https://humanconnectome.org/software/workbench-command/-metric-to-volume-mapping

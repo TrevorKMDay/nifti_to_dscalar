@@ -1,0 +1,29 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: nifti2dscalar
+message: >-
+  Easy wrapperized conversion between volume and surface
+  space.
+type: software
+authors:
+  - given-names: 'Trevor K.M '
+    family-names: Day
+    email: trevor.km.day.phd@gmail.com
+    affiliation: Georgetown University
+    orcid: 'https://orcid.org/0000-0003-2911-8312'
+abstract: >-
+  Converting between CIFTI files (e.g., dscalar.nii) and
+  NIFTI is at times confounding. This script wraps
+  conversions in both both directions, given only a data
+  file, midthickness files (and in the case of
+  surface-to-nifti, a T1 reference). Relies on WashU
+  Workbench Command and, for surface-to-volume, FSL.
+keywords:
+  - fMRI
+  - wb_command
+  - FSL
+license: CC-BY-4.0
+version: 2.0.0
+date-released: '2026-03-11'
