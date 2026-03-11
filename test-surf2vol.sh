@@ -27,28 +27,35 @@
 
 # Do this with somebody that has both vol and surf
 
-dscalar=101915/tfMRI_LANGUAGE_hp200_s4_level2.feat/GrayordinatesStats/cope4.feat/tstat1.dtseries.nii
+for cope in {1..6} ; do
 
-echo "Separating"
-wb_command -cifti-separate                      \
-    ${dscalar}                                  \
-    COLUMN                                      \
-    -metric CORTEX_LEFT  101915/cortex_L.func.gii   \
-    -metric CORTEX_RIGHT 101915/cortex_R.func.gii
+    dscalar=101915/tfMRI_LANGUAGE_hp200_s4_level2.feat/GrayordinatesStats/cope${cope}.feat/tstat1.dtseries.nii
 
-for i in L R ; do
+    echo "Separating ${cope}"
+    wb_command -cifti-separate                      \
+        "${dscalar}"                                \
+        COLUMN                                      \
+        -metric CORTEX_LEFT  "101915/cope-${cope}_L.func.gii"   \
+        -metric CORTEX_RIGHT "101915/cope-${cope}_R.func.gii"
 
-    echo "Starting ${i}"
+    for LR in L R ; do
 
-    wb_command -metric-to-volume-mapping                    \
-        101915/cortex_${i}.func.gii                         \
-        101915/101915.${i}.midthickness.32k_fs_LR.surf.gii  \
-        101915/T1w.nii.gz                                   \
-        101915/test_${i}.nii.gz                             \
-        -ribbon-constrained                                 \
-            101915/101915.${i}.white.32k_fs_LR.surf.gii     \
-            101915/101915.${i}.pial.32k_fs_LR.surf.gii
+        echo "Starting ${cope} ${LR}"
+
+        wb_command -metric-to-volume-mapping                        \
+            "101915/cope-${cope}_${LR}.func.gii"                       \
+            101915/101915.${LR}.midthickness.32k_fs_LR.surf.gii     \
+            101915/T1w.nii.gz                                       \
+            "101915/test_${cope}_${LR}.nii.gz"                         \
+            -ribbon-constrained                                     \
+                101915/101915.${LR}.white.32k_fs_LR.surf.gii        \
+                101915/101915.${LR}.pial.32k_fs_LR.surf.gii
+
+    done
+
+    fslmaths \
+        "101915/test_${cope}_L.nii.gz"         \
+        -add "101915/test_${cope}_R.nii.gz"    \
+        "101915/cope_${cope}.nii.gz"
 
 done
-
-fslmaths 101915/test_L.nii.gz -add 101915/test_R.nii.gz 101915/test.nii.gz

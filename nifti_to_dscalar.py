@@ -11,36 +11,31 @@ parser = ap.ArgumentParser(prog="nifti_to_dscalar",
                                        "Hemisphere order is always L->R.",
                            formatter_class=ap.RawTextHelpFormatter)
 
-parser.add_argument("l_surface",
-                    help="Left surface to map onto.")
+# Which direction are we going?
 
-parser.add_argument("r_surface",
-                    help="Right surface to map onto.")
+conversion = parser.add_mutually_exclusive_group(required=True)
 
-parser.add_argument("source_files", nargs="+",
-                    help="Input NIFTI or surface file(s)")
+conversion.add_argument("--to_dscalar", nargs="+",
+                        help="A list of NIFTI files to convert to surface.",
+                        metavar="NIFTI")
+
+conversion.add_argument("--to_nifti", nargs="+",
+                        help="A list of surface files to convert to NIFTI.",
+                        metavar="DSCALAR")
+
+# Shared options
 
 parser.add_argument("--overwrite", action="store_true",
                     help="If set, will overwrite output files.")
 
 parser.add_argument("--output_name", "-o", nargs="+",
-                    help="Output name (without .dscalar.nii).\nMust be same "
-                         "length as nifti input, if provided.")
+                    help="Output name (without suffix).\nMust be same "
+                         "length as input.")
 
-parser.add_argument("--method", "-m",
-                    help="Method to use.\nUse 'enclosing' for labels.\n"
-                         "Conflicts with ribbon-constrained, use "
-                         "--rc_method\n."
-                         "Default: 'trilinear'.",
-                    choices=["trilinear", "cubic", "enclosing"],
-                    default="default")
-
-parser.add_argument("--rc_method",
-                    help="Method to use for ribbon-constrained mapping.\n"
-                         "Default: 'weighted_avg'.",
-                    choices=["weighted_avg", "trilinear", "cubic",
-                             "enclosing"],
-                    default="weighted_avg")
+parser.add_argument("--midthickness", "-M", nargs=2,
+                    help="Left and right midthickness files\nRequired for "
+                         "both directions.",
+                    required=True, metavar="SURF")
 
 parser.add_argument("--inner_surfaces", "-wm", nargs=2,
                     help="WM surfaces to use ribbon enclosed projection. "
@@ -54,14 +49,37 @@ parser.add_argument("--outer_surfaces", "-pial", nargs=2,
                     default=[None, None],
                     metavar="SURF")
 
-parser.add_argument("--volume-ref", "-vol",
-                    help="When projecting metric to volume, reference volume",
-                    metavar="NIFTI")
-
 parser.add_argument("--verbose", "-v", action="store_true",
                     help="Does what a --verbose flag usually does.")
 
+# Method-specific options
+
+group_n2s = parser.add_argument_group("NIFTI to surface")
+
+group_n2s.add_argument("--method", "-m",
+                    help="Method to use.\nUse 'enclosing' for labels.\n"
+                         "Conflicts with ribbon-constrained, use "
+                         "--rc_method\n."
+                         "Default: 'trilinear'.",
+                    choices=["trilinear", "cubic", "enclosing"],
+                    default="default")
+
+group_n2s.add_argument("--rc_method",
+                    help="Method to use for ribbon-constrained mapping.\n"
+                         "Default: 'weighted_avg'.",
+                    choices=["weighted_avg", "trilinear", "cubic",
+                             "enclosing"],
+                    default="weighted_avg")
+
+group_s2n = parser.add_argument_group("Surface to NIFTI")
+
+group_s2n.add_argument("--volume-ref", "-vol",
+                       help="When projecting metric to volume, reference volume",
+                       metavar="NIFTI")
+
 args = parser.parse_args()
+
+midsurfaces = args.midthickness
 
 if bool(args.inner_surfaces is not None) ^ \
    bool(args.outer_surfaces is not None):
@@ -75,7 +93,7 @@ if bool(args.inner_surfaces is not None) ^ \
 # DEFINE FUNCTIONS
 
 
-def project_n2s(nifti, surfaces, output_name, surf_pial, surf_wm,
+def project_n2s(nifti, midsurfaces, output_name, surf_pial, surf_wm,
                 method=None, rc_method=None, verbose=False):
 
     temp_surfaces = [tf.NamedTemporaryFile(suffix=".func.gii"),
@@ -102,7 +120,7 @@ def project_n2s(nifti, surfaces, output_name, surf_pial, surf_wm,
         for i in [0, 1]:
 
             sp.run(["wb_command", "-volume-to-surface-mapping",
-                    nifti, surfaces[i], temp_surfaces[i].name, f"-{method}"],
+                    nifti, midsurfaces[i], temp_surfaces[i].name, f"-{method}"],
                    check=True)
 
     else:
@@ -124,7 +142,7 @@ def project_n2s(nifti, surfaces, output_name, surf_pial, surf_wm,
         for i in [0, 1]:
 
             cmd = ["wb_command", "-volume-to-surface-mapping",
-                   nifti, surfaces[i], temp_surfaces[i].name,
+                   nifti, midsurfaces[i], temp_surfaces[i].name,
                    "-ribbon-constrained", surf_wm[i], surf_pial[i]]
 
             # If interpolation method was changed, add that flag to the command
@@ -166,8 +184,14 @@ else:
     # Create list of Nones for loop - i.e. provide no new names
     output_names = [None] * len(args.nifti)
 
+if args.to_dscalar is not None:
+    method = "to_dscalar"
+    source_files = args.to_dscalar
+elif args.to_nifti is not None:
+    method = "to_nifti"
+    source_files = args.to_nifti
 
-for file, oname in zip(args.source_files, output_names):
+for file, oname in zip(source_files, output_names):
 
     if not os.path.isfile(file):
 
@@ -176,9 +200,9 @@ for file, oname in zip(args.source_files, output_names):
 
     print(f"INFO:  Working on {file} ...")
 
-    if ".nii" in file:
+    if method == "to_nifti":
 
-        print(f"INFO: Source file {file} is a NIFTI, doing NIFTI to surface")
+        print(f"INFO: Doing NIFTI to surface")
 
         # Set output name to provided value, otherwise just replace '.nii.gz'
         #   extension with '.dscalar.nii'
@@ -192,12 +216,14 @@ for file, oname in zip(args.source_files, output_names):
 
         else:
 
-            project_n2s(file,
-                        [args.l_surface, args.r_surface],
-                        output_name,
+            project_n2s(file, midsurfaces, output_name,
                         args.outer_surfaces, args.inner_surfaces,
                         method=args.method, rc_method=args.rc_method,
                         verbose=args.verbose)
+
+    elif method == "to_dscalar":
+
+        print(f"INFO: Doing surface to dscalar")
 
 if args.verbose:
     print(f"INFO:  {dt.datetime.now()}")
