@@ -1,5 +1,9 @@
 # nifti_to_dscalar
 
+This script wraps all the functions you need to move data between volume
+(NIFTI) and surface (CIFTI) spaces. You need your data, and minimally, the 
+midthickness files. 
+
 This script uses the convention that, when paired, the order is always left,
 right. For all methods, use `enclosing` for label values.
 
@@ -105,10 +109,17 @@ Example usage:
 ## Applying a warp to the resulting NIFTI
 
 Applying a warp to the new NIFTI is a common need, so this script supplies an
-argument, `--apply_after_warp 0/1 warp_file [suffix]`. The first 0/1 indicates
-whether to keep the unwarped file (i.e., 0 = delete it, 1 = keep both). The
-second argument is a warp file, and the optional third argument adds a suffix
-(default: `desc-warped`).
+argument, `--apply_after_warp 0/1 warp_file ref suffix`. 
+
+- The first 0/1 indicates whether to keep the unwarped file
+    (i.e., 0 = delete it, 1 = keep both).
+- The second argument is a warp file.
+- The third argument is the volume reference (for dimensions and FOV)
+- The fourth argument adds a suffix, suggested: `desc-warped` or
+  `space-SPACE`. This is added to the `output_name`.
+
+This argument requires FSL to be available on your path. There is currently no
+option to supply a path to FSL.
 
 Example usage:
 
@@ -118,9 +129,13 @@ Example usage:
         --volume_ref       101915/T1w.nii.gz \
         --inner_surfaces   101915/101915.{L,R}.white.32k_fs_LR.surf.gii \
         --outer_surfaces   101915/101915.{L,R}.pial.32k_fs_LR.surf.gii \
-        --apply_after_warp 0 101915/xfms/acpc_dc2standard.nii.gz  \
+        --apply_after_warp 0 101915/xfms/acpc_dc2standard.nii.gz reference.nii.gz desc-warped \
         --output_name      test_rc
 
+## To Do
+
+1. Add subcortical and cerebellar to surface-to-nifti conversion.
+2. Add flags to point to `wb_command` and `FSL`. 
 
 ## More help
 
@@ -128,8 +143,10 @@ Example usage:
 - [CIFTI create dense scalar][2]
 - [CIFTI separate][3]
 - [CIFTI metric (surface) to volume mapping][4]
+- [FSL applywarp][5]
 
 [1]: https://humanconnectome.org/software/workbench-command/-volume-to-surface-mapping
 [2]: https://humanconnectome.org/software/workbench-command/-cifti-create-dense-scalar
 [3]: https://humanconnectome.org/software/workbench-command/-cifti-separate
 [4]: https://humanconnectome.org/software/workbench-command/-metric-to-volume-mapping
+[5]: https://web.mit.edu/fsl_v5.0.10/fsl/doc/wiki/FNIRT(2f)UserGuide.html
