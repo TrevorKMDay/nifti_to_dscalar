@@ -82,13 +82,15 @@ group_s2n.add_argument("--nearest_vertex", nargs=1, default=2,
                             "in mm. Default: 2 mm.\n"
                             "This is overridden by using --*_surfaces")
 
-group_s2n.add_argument("--apply_after_warp", nargs='+', metavar="NIFTI",
-                       help="After doing the surface-to-volume conversion,"
+group_s2n.add_argument("--apply_after_warp", nargs=4,
+                       metavar=("0/1", "warp", "ref", "suffix"),
+                       help="After doing the surface-to-volume conversion, "
                             "apply a warp (using FSL applywarp).\n"
-                            "Three arguments:\n"
-                            "  0/1: If 1, keep unwarped file\n"
+                            "3-4 arguments:\n"
+                            "  [0/1]:  If 1, keep unwarped file\n"
                             "  [file]: Warp file to apply\n"
-                            "  [name]: suffix to add, default: _desc-warped")
+                            "  [ref]:  Reference file\n"
+                            "  [name]: suffix to add, e.g., _desc-warped")
 
 args = parser.parse_args()
 
@@ -124,25 +126,27 @@ else:
 # IMPORTANT NOTE:   This script uses the convention to pair L/R files in
 #   two-item lists, where [0] is L, and [1] is R.
 
+apply_after_warp = False
 if args.apply_after_warp is not None:
 
-    # Check whether to keep file
-    if args.apply_after_warp[0] == '1':
-        keep_unwarped = True
-    elif args.apply_after_warp[0] == '0':
-        keep_unwarped = False
-    else:
-        print(f"Invalid option \'{args.apply_after_warp[0]}\' to "
-              "--apply_after_warp, first option must be "
-              "0 or 1.")
+    apply_after_warp = True
 
-    # There's probably a neater way to do this
-    if len(args.apply_after_warp) == 2:
+    if len(args.apply_after_warp) == 4:
+
+        # Check whether to keep file
+        if args.apply_after_warp[0] == '1':
+            keep_unwarped = True
+        elif args.apply_after_warp[0] == '0':
+            keep_unwarped = False
+        else:
+            print(f"Invalid option \'{args.apply_after_warp[0]}\' to "
+                "--apply_after_warp, first option must be "
+                "0 or 1.")
+
         warp_file = args.apply_after_warp[1]
-        warp_suffix = "_desc-warped"
-    elif len(args.apply_after_warp) == 3:
-        warp_file = args.apply_after_warp[1]
-        warp_suffix = args.apply_after_warp[2]
+        warp_ref = args.apply_after_warp[2]
+        warp_suffix = args.apply_after_warp[3]
+
     else:
         print("Must supply 2 or 3 arguments to --apply_after_warp, supplied"
               f"{len(args.apply_after_warp)}")
@@ -376,12 +380,11 @@ for file, oname in zip(source_files, output_names):
         #   extension with '.dscalar.nii'
         output_name = f"{oname}.nii.gz" if oname is not None else \
             re.sub(".[a-z]*.nii$", ".nii.gz", file)
-
+            
         if os.path.exists(output_name) and not args.overwrite:
 
             print(f"ERROR: Requested output file {output_name} already "
                     "exists, not doing anything.")
-
         else:
 
             project_s2n(file, midsurfaces,
@@ -392,10 +395,10 @@ for file, oname in zip(source_files, output_names):
                         output_name=output_name,
                         verbose=args.verbose)
 
-        if args.apply_after_warp is not None:
+        if apply_after_warp:
 
-
-            output_name2 = f"{oname}{warp_suffix}.nii.gz"
+            output_name2 = f"{oname}{warp_suffix}.nii.gz" if oname is not None else \
+                re.sub(".[a-z]*.nii$", ".nii.gz", file)
 
             if os.path.exists(output_name2) and not args.overwrite:
 
