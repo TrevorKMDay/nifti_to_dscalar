@@ -135,7 +135,8 @@ Example usage:
 ## To Do
 
 1. Add subcortical and cerebellar to surface-to-nifti conversion.
-2. Add flags to point to `wb_command` and `FSL`. 
+2. Add flags to point to `wb_command` and `FSL`.
+3. Containerize
 
 ## More help
 
